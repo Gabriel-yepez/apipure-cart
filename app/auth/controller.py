@@ -1,6 +1,6 @@
-from fastapi import APIRouter, HTTPException, status
+from fastapi import HTTPException, status
 
-from app.auth.schemas import LoginRequest, RegisterRequest, TokenResponse, RefreshRequest
+from app.auth.models import TokenResponse
 from app.auth.utils import (
     hash_password,
     verify_password,
@@ -10,26 +10,23 @@ from app.auth.utils import (
 )
 from app.database import get_supabase
 
-router = APIRouter()
 
-
-@router.post("/register", response_model=TokenResponse, status_code=status.HTTP_201_CREATED)
-async def register(body: RegisterRequest):
+def register_user(email: str, password: str, full_name: str) -> TokenResponse:
     """Register a new user and return JWT tokens."""
     db = get_supabase()
 
     # Check if email already exists
-    existing = db.table("users").select("id").eq("email", body.email).execute()
+    existing = db.table("users").select("id").eq("email", email).execute()
     if existing.data:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Email already registered",
         )
 
-    hashed = hash_password(body.password)
+    hashed = hash_password(password)
     result = (
         db.table("users")
-        .insert({"email": body.email, "hashed_password": hashed, "full_name": body.full_name})
+        .insert({"email": email, "hashed_password": hashed, "full_name": full_name})
         .execute()
     )
 
@@ -40,12 +37,11 @@ async def register(body: RegisterRequest):
     )
 
 
-@router.post("/login", response_model=TokenResponse)
-async def login(body: LoginRequest):
+def login_user(email: str, password: str) -> TokenResponse:
     """Authenticate user and return JWT tokens."""
     db = get_supabase()
 
-    result = db.table("users").select("*").eq("email", body.email).execute()
+    result = db.table("users").select("*").eq("email", email).execute()
     if not result.data:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -53,7 +49,7 @@ async def login(body: LoginRequest):
         )
 
     user = result.data[0]
-    if not verify_password(body.password, user["hashed_password"]):
+    if not verify_password(password, user["hashed_password"]):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid email or password",
@@ -65,10 +61,9 @@ async def login(body: LoginRequest):
     )
 
 
-@router.post("/refresh", response_model=TokenResponse)
-async def refresh_token(body: RefreshRequest):
-    """Issue a new access token from a valid refresh token."""
-    payload = verify_token(body.refresh_token, token_type="refresh")
+def refresh_tokens(refresh_token_str: str) -> TokenResponse:
+    """Issue new tokens from a valid refresh token."""
+    payload = verify_token(refresh_token_str, token_type="refresh")
     if payload is None:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -80,13 +75,3 @@ async def refresh_token(body: RefreshRequest):
         access_token=create_access_token(user_id),
         refresh_token=create_refresh_token(user_id),
     )
-
-
-@router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)
-async def logout():
-    """
-    Logout endpoint placeholder.
-    With stateless JWTs the client just discards both tokens.
-    For server-side blacklisting, store the JTI in a revoked-tokens table.
-    """
-    return
