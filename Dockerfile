@@ -9,10 +9,10 @@ COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 WORKDIR /app
 
 # Copy dependency files first for layer caching
-COPY pyproject.toml ./
+COPY pyproject.toml README.md ./
 
-# Install dependencies into a virtual environment
-RUN uv sync --no-dev
+# Create virtual environment and install dependencies only
+RUN uv venv && uv pip install -r pyproject.toml
 
 # ──────────────────────────────────────────────
 # Stage 2: runtime
