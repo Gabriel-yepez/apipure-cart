@@ -1,10 +1,15 @@
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
-from jose import JWTError, jwt
 from passlib.context import CryptContext
+from jose import JWTError, jwt
+import bcrypt
 
 from app.config import settings
+
+# Hack to fix passlib's bcrypt version check with bcrypt 4.0.0+
+if not hasattr(bcrypt, "__about__"):
+    bcrypt.__about__ = type('about', (object,), {'__version__': bcrypt.__version__})
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
@@ -28,9 +33,9 @@ def _create_token(data: dict[str, Any], expires_delta: timedelta) -> str:
     return jwt.encode(to_encode, settings.JWT_SECRET_KEY, algorithm=settings.JWT_ALGORITHM)
 
 
-def create_access_token(user_id: str) -> str:
+def create_access_token(user_id: str, role: str) -> str:
     return _create_token(
-        {"sub": user_id, "type": "access"},
+        {"sub": user_id, "role": role, "type": "access"},
         timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES),
     )
 

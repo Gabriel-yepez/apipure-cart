@@ -9,7 +9,7 @@ router = APIRouter()
 @router.post("/register", response_model=TokenResponse, status_code=status.HTTP_201_CREATED)
 async def register(body: RegisterRequest):
     """Register a new user and return JWT tokens."""
-    return controller.register_user(body.email, body.password, body.full_name)
+    return controller.register_user(body.email, body.password, body.full_name, body.role)
 
 
 @router.post("/login", response_model=TokenResponse)
