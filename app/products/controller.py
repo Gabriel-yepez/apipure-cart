@@ -1,7 +1,11 @@
+import logging
 from fastapi import HTTPException, status
-
 from app.database import get_supabase
 from app.products.models import ProductOut
+from app.trace.logger import logger
+
+# Use the app's logger scope
+p_logger = logging.getLogger("apipure.products")
 
 PRODUCT_FIELDS = "id, name, description, price, discount_percent, stock, category, is_active, image_url, sales_count, created_at"
 
@@ -14,97 +18,172 @@ def list_products(
     limit: int = 20,
     offset: int = 0,
 ) -> list[ProductOut]:
+    p_logger.info(f"Listing products: category={category}, search={search}, limit={limit}")
     db = get_supabase()
-    query = db.table("products").select(PRODUCT_FIELDS).eq("is_active", True)
+    
+    try:
+        query = db.table("products").select(PRODUCT_FIELDS).eq("is_active", True)
 
-    if category:
-        query = query.eq("category", category)
-    if min_price is not None:
-        query = query.gte("price", min_price)
-    if max_price is not None:
-        query = query.lte("price", max_price)
-    if search:
-        query = query.ilike("name", f"%{search}%")
+        if category:
+            query = query.eq("category", category)
+        if min_price is not None:
+            query = query.gte("price", min_price)
+        if max_price is not None:
+            query = query.lte("price", max_price)
+        if search:
+            query = query.ilike("name", f"%{search}%")
 
-    result = query.range(offset, offset + limit - 1).execute()
-    return [ProductOut.from_db(r) for r in result.data]
+        result = query.range(offset, offset + limit - 1).execute()
+        p_logger.info(f"Retrieved {len(result.data)} products")
+        return [ProductOut.from_db(r) for r in result.data]
+        
+    except Exception as e:
+        p_logger.error(f"Error listing products: {str(e)}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Error retrieving products"
+        )
 
 
 def get_product(product_id: str) -> ProductOut:
     """Get a single product by ID."""
+    p_logger.info(f"Fetching product details for id: {product_id}")
     db = get_supabase()
-    result = (
-        db.table("products")
-        .select(PRODUCT_FIELDS)
-        .eq("id", product_id)
-        .single()
-        .execute()
-    )
-    if not result.data:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Product not found",
+    
+    try:
+        result = (
+            db.table("products")
+            .select(PRODUCT_FIELDS)
+            .eq("id", product_id)
+            .single()
+            .execute()
         )
-    return ProductOut.from_db(result.data)
+        if not result.data:
+            p_logger.warning(f"Product with id {product_id} not found")
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Product not found",
+            )
+        p_logger.info(f"Successfully retrieved product: {result.data['name']}")
+        return ProductOut.from_db(result.data)
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        p_logger.error(f"Error fetching product {product_id}: {str(e)}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Error retrieving product details"
+        )
 
 
 def create_product(data: dict) -> ProductOut:
+    p_logger.info(f"Creating new product: {data.get('name')}")
     db = get_supabase()
-    result = db.table("products").insert(data).select(PRODUCT_FIELDS).single().execute()
-    return ProductOut.from_db(result.data)
+    
+    try:
+        result = db.table("products").insert(data).select(PRODUCT_FIELDS).single().execute()
+        p_logger.info(f"Product created successfully with id: {result.data['id']}")
+        return ProductOut.from_db(result.data)
+    except Exception as e:
+        p_logger.error(f"Error creating product: {str(e)}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Error creating product"
+        )
 
 
 def update_product(product_id: str, data: dict) -> ProductOut:
     if not data:
+        p_logger.warning(f"Update attempt for product {product_id} with no data")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="No fields provided",
         )
+    
     # Verify product exists
     get_product(product_id)
 
     db = get_supabase()
-    result = (
-        db.table("products")
-        .update(data)
-        .eq("id", product_id)
-        .select(PRODUCT_FIELDS)
-        .single()
-        .execute()
-    )
-    return ProductOut.from_db(result.data)
+    p_logger.info(f"Updating product {product_id} with data keys: {list(data.keys())}")
+    
+    try:
+        result = (
+            db.table("products")
+            .update(data)
+            .eq("id", product_id)
+            .select(PRODUCT_FIELDS)
+            .single()
+            .execute()
+        )
+        p_logger.info(f"Product {product_id} updated successfully")
+        return ProductOut.from_db(result.data)
+    except Exception as e:
+        p_logger.error(f"Error updating product {product_id}: {str(e)}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Error updating product"
+        )
 
 
 def delete_product(product_id: str) -> None:
-    # Verify product exists
+    # Verify product exists before deletion
     get_product(product_id)
 
     db = get_supabase()
-    db.table("products").delete().eq("id", product_id).execute()
+    p_logger.info(f"Deleting product with id: {product_id}")
+    
+    try:
+        db.table("products").delete().eq("id", product_id).execute()
+        p_logger.info(f"Product {product_id} deleted successfully")
+    except Exception as e:
+        p_logger.error(f"Error deleting product {product_id}: {str(e)}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Error deleting product"
+        )
 
 
 def get_discounted_products(limit: int = 20) -> list[ProductOut]:
+    p_logger.info(f"Fetching discounted products, limit: {limit}")
     db = get_supabase()
-    result = (
-        db.table("products")
-        .select(PRODUCT_FIELDS)
-        .eq("is_active", True)
-        .gt("discount_percent", 0)
-        .order("discount_percent", desc=True)
-        .limit(limit)
-        .execute()
-    )
-    return [ProductOut.from_db(r) for r in result.data]
+    
+    try:
+        result = (
+            db.table("products")
+            .select(PRODUCT_FIELDS)
+            .eq("is_active", True)
+            .gt("discount_percent", 0)
+            .order("discount_percent", desc=True)
+            .limit(limit)
+            .execute()
+        )
+        return [ProductOut.from_db(r) for r in result.data]
+    except Exception as e:
+        p_logger.error(f"Error fetching discounted products: {str(e)}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Error retrieving discounted products"
+        )
 
 
 def get_best_sellers(limit: int = 20) -> list[ProductOut]:
+    p_logger.info(f"Fetching best-selling products, limit: {limit}")
     db = get_supabase()
-    result = (
-        db.table("products")
-        .select(PRODUCT_FIELDS)
-        .eq("is_active", True)
-        .order("sales_count", desc=True)
-        .limit(limit)
-        .execute()
-    )
-    return [ProductOut.from_db(r) for r in result.data]
+    
+    try:
+        result = (
+            db.table("products")
+            .select(PRODUCT_FIELDS)
+            .eq("is_active", True)
+            .order("sales_count", desc=True)
+            .limit(limit)
+            .execute()
+        )
+        return [ProductOut.from_db(r) for r in result.data]
+    except Exception as e:
+        p_logger.error(f"Error fetching best-selling products: {str(e)}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Error retrieving best-selling products"
+        )
