@@ -11,6 +11,9 @@ from app.users.routes import router as users_router
 from app.products.routes import router as products_router
 from app.favorites.routes import router as favorites_router
 from app.transactions.routes import router as transactions_router
+from app.payment_methods.routes import router as payment_methods_router
+from app.orders.routes import router as orders_router
+from app.shipping.routes import router as shipping_router
 from app.apiResponse.schemas import create_response
 
 # Initialize logging
@@ -87,11 +90,14 @@ app.add_middleware(
 # ─── Routers ─────────────────────────────────────────────────────────────────
 PREFIX = "/api/v1"
 
-app.include_router(auth_router,         prefix=f"{PREFIX}/auth",         tags=["Auth"])
-app.include_router(users_router,        prefix=f"{PREFIX}/users",        tags=["Users"])
-app.include_router(products_router,     prefix=f"{PREFIX}/products",     tags=["Products"])
-app.include_router(favorites_router,    prefix=f"{PREFIX}/favorites",    tags=["Favorites"])
-app.include_router(transactions_router, prefix=f"{PREFIX}/transactions", tags=["Transactions"])
+app.include_router(auth_router,             prefix=f"{PREFIX}/auth",            tags=["Auth"])
+app.include_router(users_router,            prefix=f"{PREFIX}/users",           tags=["Users"])
+app.include_router(products_router,         prefix=f"{PREFIX}/products",        tags=["Products"])
+app.include_router(favorites_router,        prefix=f"{PREFIX}/favorites",       tags=["Favorites"])
+app.include_router(transactions_router,     prefix=f"{PREFIX}/transactions",    tags=["Transactions"])
+app.include_router(payment_methods_router,  prefix=f"{PREFIX}/payment-methods", tags=["Payment Methods"])
+app.include_router(orders_router,           prefix=f"{PREFIX}/orders",          tags=["Orders"])
+app.include_router(shipping_router,         prefix=f"{PREFIX}/shipping",        tags=["Shipping"])
 
 
 @app.get("/", tags=["Health"])
