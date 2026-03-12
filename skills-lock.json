@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "skills": {
+    "fastapi-templates": {
+      "source": "wshobson/agents",
+      "sourceType": "github",
+      "computedHash": "1a5fe66bd2683afd1db9afdf37a25cd8b9195c369c98489333badf0406fc91b3"
+    },
+    "supabase-postgres-best-practices": {
+      "source": "supabase/agent-skills",
+      "sourceType": "github",
+      "computedHash": "e3ba3d760c5f4cc43b02a91fb8924f726c7818f95cc35d79d0a606ca622b72f5"
+    }
+  }
+}
