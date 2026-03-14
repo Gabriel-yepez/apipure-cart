@@ -12,9 +12,7 @@ WORKDIR /app
 COPY pyproject.toml README.md ./
 
 # Create virtual environment and install project dependencies
-# Uses --no-dev to skip dev dependencies, --no-install-project to skip
-# installing the project itself (we only need the deps in the venv).
-RUN uv venv && uv pip install -r pyproject.toml --no-deps=false
+RUN uv venv && uv pip install -r pyproject.toml
 
 # ──────────────────────────────────────────────
 # Stage 2: runtime
