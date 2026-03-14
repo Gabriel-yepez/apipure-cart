@@ -26,3 +26,9 @@ class RefreshRequest(BaseModel):
 
 class OAuthUrlResponse(BaseModel):
     url: str
+
+
+class OAuthCallbackRequest(BaseModel):
+    """Request body for exchanging a Supabase OAuth authorization code (PKCE) for app JWTs."""
+    code: str
+    code_verifier: str

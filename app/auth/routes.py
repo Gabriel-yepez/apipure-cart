@@ -1,6 +1,6 @@
-from fastapi import APIRouter, status, HTTPException
+from fastapi import APIRouter, Query, status, HTTPException
 
-from app.auth.models import LoginRequest, RegisterRequest, TokenResponse, RefreshRequest, OAuthUrlResponse
+from app.auth.models import LoginRequest, RegisterRequest, TokenResponse, RefreshRequest, OAuthUrlResponse, OAuthCallbackRequest
 from app.auth import controller
 from app.apiResponse.schemas import ApiResponse, create_response
 
@@ -38,14 +38,28 @@ async def logout():
 
 
 @router.get("/login/{provider}", response_model=ApiResponse[OAuthUrlResponse])
-async def login_oauth(provider: str):
+async def login_oauth(provider: str, code_challenge: str = Query(..., min_length=43, max_length=128)):
     """
-    Authenticate user via OAuth provider (Google, Facebook, Twitter).
-    Returns the authorization URL to redirect the user.
+    Generate an OAuth authorization URL for the given provider (Authorization Code + PKCE).
+
+    The frontend must generate a code_verifier / code_challenge pair and send the
+    code_challenge here. Supabase will return an authorization code (not tokens)
+    to the redirect URL.
     """
     if provider not in ["google", "facebook", "twitter"]:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Unsupported provider")
     
-    url = controller.login_oauth(provider)
+    url = controller.login_oauth(provider, code_challenge)
     data = OAuthUrlResponse(url=url)
     return create_response(data=data, messages=f"OAuth URL for {provider} successfully generated")
+
+
+@router.post("/oauth/callback", response_model=ApiResponse[TokenResponse])
+async def oauth_callback(body: OAuthCallbackRequest):
+    """
+    Exchange a Supabase OAuth authorization code + PKCE code_verifier for application JWT tokens.
+
+    The frontend calls this after receiving the authorization code from Supabase's redirect.
+    """
+    data = controller.exchange_oauth_code(body.code, body.code_verifier)
+    return create_response(data=data, messages="OAuth login successful")
