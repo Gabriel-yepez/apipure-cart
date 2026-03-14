@@ -27,6 +27,18 @@ app = FastAPI(
     redoc_url="/redoc",
 )
 
+# ─── CORS ────────────────────────────────────────────────────────────────────
+# CORSMiddleware must be added BEFORE any custom http middleware so that
+# preflight (OPTIONS) requests are handled before they reach our logger.
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=settings.BACKEND_CORS_ORIGINS,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+
 # ─── Middleware ──────────────────────────────────────────────────────────────
 @app.middleware("http")
 async def log_requests(request: Request, call_next):
@@ -36,6 +48,7 @@ async def log_requests(request: Request, call_next):
     
     start_time = time.time()
     
+    # Safely extract client host (request.client can be None on some platforms)
     client_host = request.client.host if request.client else "unknown"
     
     try:
@@ -76,16 +89,7 @@ async def log_requests(request: Request, call_next):
             exc_info=True # This includes the traceback
         )
         # Re-raise so FastAPI can handle it (or common error handlers)
-        raise e
-
-# ─── CORS ────────────────────────────────────────────────────────────────────
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=settings.BACKEND_CORS_ORIGINS,
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+        raise
 
 # ─── Routers ─────────────────────────────────────────────────────────────────
 PREFIX = "/api/v1"

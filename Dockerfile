@@ -11,8 +11,10 @@ WORKDIR /app
 # Copy dependency files first for layer caching
 COPY pyproject.toml README.md ./
 
-# Create virtual environment and install dependencies only
-RUN uv venv && uv pip install -r pyproject.toml
+# Create virtual environment and install project dependencies
+# Uses --no-dev to skip dev dependencies, --no-install-project to skip
+# installing the project itself (we only need the deps in the venv).
+RUN uv venv && uv pip install -r pyproject.toml --no-deps=false
 
 # ──────────────────────────────────────────────
 # Stage 2: runtime
@@ -32,6 +34,10 @@ ENV PATH="/app/.venv/bin:$PATH" \
     PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1
 
-EXPOSE 8000
+# Railway injects $PORT dynamically; default to 8000 for local Docker usage
+ENV PORT=8000
 
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+EXPOSE ${PORT}
+
+# Use shell form so $PORT is expanded at runtime
+CMD uvicorn app.main:app --host 0.0.0.0 --port $PORT

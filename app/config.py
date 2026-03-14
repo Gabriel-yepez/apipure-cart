@@ -3,14 +3,23 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        # Ignore extra env vars that Railway injects (e.g. RAILWAY_*, PORT, etc.)
+        extra="ignore",
+    )
 
     # App
     APP_TITLE: str = "APIPure Cart"
     APP_VERSION: str = "0.1.0"
     APP_ENV: str = "development"
     APP_DEBUG: bool = True
-    BACKEND_CORS_ORIGINS: List[str] = ["http://localhost:3000", "http://localhost:5173", "https://pure-cart-frontend-mqpw.vercel.app"]
+    BACKEND_CORS_ORIGINS: List[str] = [
+        "http://localhost:3000",
+        "http://localhost:5173",
+        "https://pure-cart-frontend-mqpw.vercel.app",
+    ]
 
     # Supabase
     SUPABASE_URL: str
